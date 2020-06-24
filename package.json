@@ -9,12 +9,9 @@
     "pm2": "pm2 start process.json"
   },
   "dependencies": {
+    "axios": "^0.19.2",
     "crypto": "^1.0.1",
-    "dingtalk-robot-sender": "^1.2.0",
-    "hapi": "^18.1.0",
-    "mysql2": "^1.7.0",
-    "require-directory": "^2.1.1",
-    "sequelize": "^5.19.6"
+    "hapi": "^18.1.0"
   },
   "devDependencies": {
     "@types/hapi": "^18.0.2",
