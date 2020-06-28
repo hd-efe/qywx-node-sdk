@@ -12,7 +12,8 @@
   "dependencies": {
     "axios": "^0.19.2",
     "crypto": "^1.0.1",
-    "hapi": "^18.1.0"
+    "hapi": "^18.1.0",
+    "pm2": "^4.4.0"
   },
   "devDependencies": {
     "@types/hapi": "^18.0.2",
