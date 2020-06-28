@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "nodemon -e ts  --exec \"yarn run compile\"",
     "compile": "tsc && node ./dist/server.js",
-    "pm2": "pm2 start process.json"
+    "pm2": "pm2 start process.json",
+    "build": "node dist/server.js"
   },
   "dependencies": {
     "axios": "^0.19.2",
