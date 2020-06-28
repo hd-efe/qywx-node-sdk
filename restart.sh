@@ -1,1 +1,1 @@
-git pull && pm2 restart financeAPI
+pm2 restart qywx

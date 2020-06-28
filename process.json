@@ -1,7 +1,7 @@
 {
     "apps": [
       {
-        "name": "financeAPI",
+        "name": "qywx",
         "cwd": "./dist",
         "script": "server.js",
         "log_date_format": "YYYY-MM-DD HH:mm Z",
