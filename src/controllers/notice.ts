@@ -2,45 +2,102 @@ const fs = require('fs')
 const path = require('path')
 const axios = require('axios')
 const crypto = require('crypto')
+const stringRandom = require('string-random')
 const corpid = 'ww1266e7f9c1f958ec'
 const agentid = "1000002";
 const corpsecret = 'r09v4eGvsSADCEn2aJGMt9X2JzB_k4ZDGRbZq1QGVQQ'
 let gettoken_url = `https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${corpid}&corpsecret=${corpsecret}`
-let get_js_ticket_url = `https://qyapi.weixin.qq.com/cgi-bin/get_jsapi_ticket`
-let get_js_ticket_app_url = `https://qyapi.weixin.qq.com/cgi-bin/ticket/get`
-const get_token = () => {
-    console.log('发送获取token请求...')
-    return new Promise((resolve, reject) => {
-        return axios.get(gettoken_url, {
-        }).then(res => {
-            resolve(res.data)
-        }).catch(err => {
-            reject(err)
-        })
-    })
+let get_jsticket_url = `https://qyapi.weixin.qq.com/cgi-bin/get_jsapi_ticket`
+let get_jsticket_app_url = `https://qyapi.weixin.qq.com/cgi-bin/ticket/get`
+const data_file_folder = path.resolve(__dirname, `../../data/`)
+
+type File = {
+    key: string
+    // 文件名
+    src: string
+    // 请求返回值 要取的key
+    return_key: string
+    // 数据写入文件路劲
+    path?: string
+    // 请求url
+    req_url: string
 }
-const get_js_ticket = (access_token) => {
-    console.log('发送获取ticket请求...')
-    return new Promise((resolve, reject) => {
-        return axios.get(get_js_ticket_url, {
-            params: {
-                access_token
+// 签名对象
+type SignParams = {
+    jsapi_ticket: string
+    noncestr: string
+    timestamp: number
+    url: string
+}
+
+const files: File[] = [{
+    // 获取token
+    key: 'token',
+    return_key: 'access_token',
+    src: 'token.json',
+    req_url: gettoken_url
+}, {
+    // 获取企业jstickets
+    key: 'jstickets',
+    return_key: 'ticket',
+    src: 'jstickets.json',
+    req_url: get_jsticket_url
+}, {
+    // 获取app jstickets
+    key: 'jstickets_app',
+    return_key: 'ticket',
+    src: 'jstickets_app.json',
+    req_url: get_jsticket_app_url
+}]
+const control = {
+    async exec(action: string, params: File, other?: object) {
+        switch (action) {
+            case 'renew':
+                return await control.renew(params, other)
+                break
+            case 'get':
+                return await control.get(params, other)
+            default:
+                break
+        }
+    },
+    async renew(params: File, other?: object) {
+        let res: any = {}
+        res = await do_request(params.req_url, other)
+
+        if (res.errcode == 0 && res.errmsg == 'ok') {
+            let fileData = {
+                [params.key]: res[params.return_key],
+                expries_time: new Date().getTime() + 7200 * 1000
             }
-        }).then(res => {
-            resolve(res.data)
-        }).catch(err => {
-            reject(err)
-        })
-    })
-}
-const get_js_ticket_app = (access_token) => {
-    console.log('发送获取ticket请求...')
-    return new Promise((resolve, reject) => {
-        return axios.get(get_js_ticket_app_url, {
-            params: {
-                access_token,
-                type: 'agent_config'
+            fs.writeFileSync(params.path, JSON.stringify(fileData))
+            return fileData[params.key]
+        } else {
+            return ''
+        }
+    },
+    async get(params: File, other?: object) {
+        let file_path = params.path
+        let res = fs.readFileSync(file_path, 'utf-8')
+        if (res == '') {
+            return await control.exec('renew', params, other)
+        } else {
+            let json_res = JSON.parse(res);
+            if (json_res.expries_time < new Date().getTime()) {
+                // 过期
+                return await control.exec('renew', params, other)
+            } else {
+                return json_res[params.key]
             }
+        }
+    }
+}
+
+const do_request = (url, params?: object) => {
+    console.log(`请求${url}`)
+    return new Promise((resolve, reject) => {
+        return axios.get(url, {
+            params
         }).then(res => {
             resolve(res.data)
         }).catch(err => {
@@ -48,123 +105,54 @@ const get_js_ticket_app = (access_token) => {
         })
     })
 }
-// 重新获取token 并且写入文件
-const renew_token = async () => {
-    let token: any = await get_token()
-    if (token.errcode == 0 && token.errmsg == 'ok') {
-        let fileData = {
-            token: token.access_token,
-            expries_time: new Date().getTime() + 7200 * 1000
-        }
-        fs.writeFileSync(path.resolve(__dirname, '../data/token.json'), JSON.stringify(fileData))
-        return fileData.token
-    }
-}
-const handle_token = async () => {
-    let res = fs.readFileSync(path.resolve(__dirname, '../data/token.json'), 'utf-8')
-    if (res == '') {
-        return renew_token()
-    }else {
-        let json_res = JSON.parse(res);
-        if(json_res.expries_time < new Date().getTime()) {
-            // 过期
-            return renew_token()
-        }else {
-            return json_res.token
-        }
-    }
-}
-const renew_js_ticket = async(access_token) => {
-    let res: any = await get_js_ticket(access_token)
-    if (res.errcode == 0 && res.errmsg == 'ok') {
-        let fileData = {
-            ticket: res.ticket,
-            expries_time: new Date().getTime() + 7200 * 1000
-        }
-        fs.writeFileSync(path.resolve(__dirname, '../data/ticket.json'), JSON.stringify(fileData))
-        return fileData.ticket;
-    }
-}
-const renew_js_ticket_app = async(access_token) => {
-    let res: any = await get_js_ticket_app(access_token)
-    if (res.errcode == 0 && res.errmsg == 'ok') {
-        let fileData = {
-            ticket: res.ticket,
-            expries_time: new Date().getTime() + 7200 * 1000
-        }
-        fs.writeFileSync(path.resolve(__dirname, '../data/ticket_app.json'), JSON.stringify(fileData))
-        return fileData.ticket;
-    }
-}
 
-const handle_js_ticket_app = async (access_token) => {
-
-    let res = fs.readFileSync(path.resolve(__dirname, '../data/ticket_app.json'), 'utf-8')
-    if (res == '') {
-        return renew_js_ticket_app(access_token)
-    }else {
-        let json_res = JSON.parse(res);
-        if(json_res.expries_time < new Date().getTime()) {
-            // 过期
-            return renew_js_ticket_app(access_token)
-        }else {
-            return json_res.ticket
-        }
-    }
-}
-const handle_js_ticket = async (access_token) => {
-
-    let res = fs.readFileSync(path.resolve(__dirname, '../data/ticket.json'), 'utf-8')
-    if (res == '') {
-        return renew_js_ticket(access_token)
-    }else {
-        let json_res = JSON.parse(res);
-        if(json_res.expries_time < new Date().getTime()) {
-            // 过期
-            return renew_js_ticket(access_token)
-        }else {
-            return json_res.ticket
-        }
-    }
-}
-const sign = (params) => {
-    let str = `jsapi_ticket=${params.jsapi_ticket}&noncestr=${params.nonceStr}&timestamp=${params.timestamp}&url=${params.url}`
+const sign = (params: SignParams) => {
+    let str = `jsapi_ticket=${params.jsapi_ticket}&noncestr=${params.noncestr}&timestamp=${params.timestamp}&url=${params.url}`
     return crypto.createHash('sha1').update(str).digest('hex')
 }
 class Notice {
     constructor() {
-
+        if (!fs.existsSync(data_file_folder)) {
+            fs.mkdirSync(data_file_folder)
+        }
+        files.forEach(file => {
+            file.path = path.resolve(data_file_folder, file.src);
+            if (!fs.existsSync(file.path)) {
+                fs.writeFileSync(file.path, '', 'utf-8')
+            }
+        })
     }
     async index(request) {
-        if(!request.query.url) {
+        if (!request.query.url) {
             return {
                 msg: '缺少参数'
             }
         }
-        let token = await handle_token()
-        let ticket = await handle_js_ticket(token)
-        let ticket_app = await handle_js_ticket_app(token)
-        let timestamp = Math.round(new Date().getTime() / 1000)
+        let token = await control.exec('get', files[0], {})
+        let ticket = await control.exec('get', files[1], { access_token: token })
+        let ticket_app = await control.exec('get', files[2], {
+            access_token: token,
+            type: 'agent_config'
+        })
+        let noncestr = stringRandom(16)
         let url = request.query.url
-        let nonceStr = 'hundundaxue'
-        let sginParams = {
+        let timestamp = Math.round(new Date().getTime() / 1000)
+        let signature = sign({
             jsapi_ticket: ticket,
-            nonceStr,
+            noncestr,
             timestamp,
             url
-        }
-        let sginapp = {
+        })
+        let signature1 = sign({
             jsapi_ticket: ticket_app,
-            nonceStr,
+            noncestr,
             timestamp,
             url
-        }
-        let signature = sign(sginParams)
-        let signature1 = sign(sginapp)
+        })
         return {
             appId: corpid,
             timestamp,
-            nonceStr,
+            nonceStr: noncestr,
             signature,
             signature1,
             agentid
