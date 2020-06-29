@@ -13,7 +13,7 @@ const hapi = require("hapi");
 const index_1 = require("./routers/index");
 const server = new hapi.Server({
     host: 'localhost',
-    port: 3001,
+    port: 3002,
 });
 server.route(index_1.default);
 function start() {
