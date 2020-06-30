@@ -114,6 +114,7 @@ const sign = (params) => {
 };
 class Notice {
     constructor() {
+        this.token = 'a';
         if (!fs.existsSync(data_file_folder)) {
             fs.mkdirSync(data_file_folder);
         }
@@ -121,6 +122,34 @@ class Notice {
             file.path = path.resolve(data_file_folder, file.src);
             if (!fs.existsSync(file.path)) {
                 fs.writeFileSync(file.path, '', 'utf-8');
+            }
+        });
+        this.get_token();
+    }
+    get_token() {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.token = yield control.exec('get', files[0], {});
+        });
+    }
+    user_info(request) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!request.query.user_id) {
+                return {
+                    msg: '缺少参数'
+                };
+            }
+            let external_userid = request.query.user_id;
+            let res = yield do_request('https://qyapi.weixin.qq.com/cgi-bin/externalcontact/get', {
+                access_token: this.token,
+                external_userid
+            });
+            if (res.errcode == 0 && res.errmsg == 'ok') {
+                return res.external_contact;
+            }
+            else {
+                return {
+                    msg: '获取失败'
+                };
             }
         });
     }
@@ -131,7 +160,7 @@ class Notice {
                     msg: '缺少参数'
                 };
             }
-            let token = yield control.exec('get', files[0], {});
+            let token = this.token;
             let ticket = yield control.exec('get', files[1], { access_token: token });
             let ticket_app = yield control.exec('get', files[2], {
                 access_token: token,

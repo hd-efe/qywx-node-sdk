@@ -115,7 +115,9 @@ const sign = (params: SignParams) => {
     let str = `jsapi_ticket=${params.jsapi_ticket}&noncestr=${params.noncestr}&timestamp=${params.timestamp}&url=${params.url}`
     return crypto.createHash('sha1').update(str).digest('hex')
 }
+
 class Notice {
+    token: string = 'a'
     constructor() {
         if (!fs.existsSync(data_file_folder)) {
             fs.mkdirSync(data_file_folder)
@@ -126,6 +128,32 @@ class Notice {
                 fs.writeFileSync(file.path, '', 'utf-8')
             }
         })
+        this.get_token()
+
+    }
+    async get_token() {
+        this.token = await control.exec('get', files[0], {})
+    }
+    async user_info(request) {
+        if (!request.query.user_id) {
+            return {
+                msg: '缺少参数'
+            }
+        }
+        let external_userid = request.query.user_id
+        let res: any = await do_request('https://qyapi.weixin.qq.com/cgi-bin/externalcontact/get', {
+            access_token: this.token,
+            external_userid
+        })
+
+        if (res.errcode == 0 && res.errmsg == 'ok') {
+            return res.external_contact
+        } else {
+
+            return {
+                msg: '获取失败'
+            }
+        }
     }
     async index(request) {
         if (!request.query.url) {
@@ -133,7 +161,7 @@ class Notice {
                 msg: '缺少参数'
             }
         }
-        let token = await control.exec('get', files[0], {})
+        let token = this.token
         let ticket = await control.exec('get', files[1], { access_token: token })
         let ticket_app = await control.exec('get', files[2], {
             access_token: token,
